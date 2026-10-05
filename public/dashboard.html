@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FERICOD // Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/assets/theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+  <header class="border-b border-line bg-black/60 backdrop-blur sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="font-display text-xl font-black text-blood glitch tracking-widest">FERICOD <span class="text-zinc-500 text-xs font-mono">/dashboard</span></h1>
+      <div class="flex items-center gap-3 text-xs">
+        <span id="who" class="text-zinc-400 hidden sm:inline"></span>
+        <button id="logout" class="btn-ghost">LOGOUT</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <!-- Stats -->
+    <section class="grid grid-cols-3 gap-3">
+      <div class="card p-4"><p class="text-[10px] text-zinc-500">TOTAL KEY</p><p id="s-total" class="font-display text-2xl text-blood">0</p></div>
+      <div class="card p-4"><p class="text-[10px] text-zinc-500">AKTIF</p><p id="s-active" class="font-display text-2xl text-green-400">0</p></div>
+      <div class="card p-4"><p class="text-[10px] text-zinc-500">NONAKTIF / EXPIRED</p><p id="s-off" class="font-display text-2xl text-zinc-400">0</p></div>
+    </section>
+
+    <!-- Generator -->
+    <section class="card p-5 shadow-glow">
+      <h2 class="font-display tracking-widest mb-4">KEY GENERATOR</h2>
+      <form id="gen" class="grid sm:grid-cols-[1fr_180px_auto] gap-3 items-end">
+        <div>
+          <label class="text-xs text-zinc-400">LABEL (opsional)</label>
+          <input id="label" maxlength="40" class="inp mt-1" placeholder="mis. Player Budi" />
+        </div>
+        <div>
+          <label class="text-xs text-zinc-400">DURASI</label>
+          <select id="days" class="inp mt-1">
+            <option value="0">Permanen</option>
+            <option value="1">1 hari</option>
+            <option value="7">7 hari</option>
+            <option value="30">30 hari</option>
+            <option value="90">90 hari</option>
+          </select>
+        </div>
+        <button id="genbtn" class="btn">Generate</button>
+      </form>
+      <div id="newkey" class="hidden mt-4 p-3 rounded-lg border border-blood/50 bg-black flex items-center justify-between gap-3">
+        <code id="newkey-text" class="text-blood-light text-sm break-all"></code>
+        <button id="newkey-copy" class="btn-ghost shrink-0">COPY</button>
+      </div>
+    </section>
+
+    <!-- List -->
+    <section class="card p-5">
+      <h2 class="font-display tracking-widest mb-4">KEY LIST</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-[10px] text-zinc-500 border-b border-line">
+              <th class="py-2 pr-3">KEY</th><th class="pr-3">LABEL</th><th class="pr-3">STATUS</th><th class="pr-3">EXPIRED</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="text-xs text-zinc-500 py-6 text-center hidden">Belum ada key. Generate dulu di atas.</p>
+    </section>
+
+    <!-- API info -->
+    <section class="card p-5">
+      <h2 class="font-display tracking-widest mb-3">API VERIFY (Roblox)</h2>
+      <p class="text-xs text-zinc-400 mb-2">Endpoint:</p>
+      <code id="endpoint" class="block text-xs bg-black border border-line rounded-lg p-3 text-blood-light break-all"></code>
+      <p class="text-xs text-zinc-400 mt-4 mb-2">Contoh Lua (Roblox ServerScript):</p>
+      <pre id="lua" class="text-xs bg-black border border-line rounded-lg p-3 overflow-x-auto text-zinc-300"></pre>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+  <script>
+    if (!Auth.token) location.replace('/signin');
+    document.getElementById('who').textContent = Auth.email || '';
+    document.getElementById('logout').onclick = () => { Auth.clear(); location.href = '/signin'; };
+
+    const origin = location.origin;
+    document.getElementById('endpoint').textContent = origin + '/api/verify?key=FERICOD-XXXX-XXXX-XXXX';
+    document.getElementById('lua').textContent =
+`local HttpService = game:GetService("HttpService")
+local KEY = "FERICOD-XXXX-XXXX-XXXX"
+
+local ok, res = pcall(function()
+    return HttpService:GetAsync("${origin}/api/verify?key=" .. KEY)
+end)
+
+if ok then
+    local data = HttpService:JSONDecode(res)
+    if data.success then
+        print("Key valid!")
+    else
+        warn("Key tidak valid")
+    end
+end`;
+
+    function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function copy(t) { navigator.clipboard.writeText(t).then(() => toast('Disalin: ' + t), () => toast('Gagal menyalin', true)); }
+    function status(k) {
+      if (!k.active) return ['NONAKTIF', 'text-zinc-400'];
+      if (k.expiresAt && k.expiresAt < Date.now()) return ['EXPIRED', 'text-yellow-500'];
+      return ['AKTIF', 'text-green-400'];
+    }
+
+    let keys = [];
+    async function load() {
+      const { ok, data } = await api('/api/keys');
+      if (!ok) return toast(data.message || 'Gagal memuat', true);
+      keys = data.keys;
+      render();
+    }
+
+    function render() {
+      const rows = document.getElementById('rows');
+      rows.innerHTML = '';
+      let active = 0;
+      keys.forEach((k) => {
+        const [st, cls] = status(k);
+        if (st === 'AKTIF') active++;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-line/60';
+        tr.innerHTML = `
+          <td class="py-2 pr-3"><code class="text-blood-light">${esc(k.key)}</code></td>
+          <td class="pr-3 text-zinc-400">${esc(k.label || '-')}</td>
+          <td class="pr-3 ${cls} text-xs">${st}</td>
+          <td class="pr-3 text-xs text-zinc-500">${k.expiresAt ? new Date(k.expiresAt).toLocaleDateString('id-ID') : 'Permanen'}</td>
+          <td class="text-right whitespace-nowrap space-x-1">
+            <button class="btn-ghost" data-a="copy">COPY</button>
+            <button class="btn-ghost" data-a="toggle">${k.active ? 'OFF' : 'ON'}</button>
+            <button class="btn-ghost" data-a="del">HAPUS</button>
+          </td>`;
+        tr.querySelector('[data-a=copy]').onclick = () => copy(k.key);
+        tr.querySelector('[data-a=toggle]').onclick = async () => {
+          await api('/api/keys?key=' + encodeURIComponent(k.key), { method: 'PATCH' });
+          load();
+        };
+        tr.querySelector('[data-a=del]').onclick = async () => {
+          if (!confirm('Hapus ' + k.key + '?')) return;
+          await api('/api/keys?key=' + encodeURIComponent(k.key), { method: 'DELETE' });
+          load();
+        };
+        rows.appendChild(tr);
+      });
+      document.getElementById('empty').classList.toggle('hidden', keys.length > 0);
+      document.getElementById('s-total').textContent = keys.length;
+      document.getElementById('s-active').textContent = active;
+      document.getElementById('s-off').textContent = keys.length - active;
+    }
+
+    document.getElementById('gen').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const b = document.getElementById('genbtn');
+      b.disabled = true;
+      const { ok, data } = await api('/api/keys', {
+        method: 'POST',
+        body: { label: document.getElementById('label').value, days: document.getElementById('days').value },
+      });
+      b.disabled = false;
+      if (!ok || !data.success) return toast(data.message || 'Gagal generate', true);
+      document.getElementById('newkey').classList.remove('hidden');
+      document.getElementById('newkey-text').textContent = data.key.key;
+      document.getElementById('newkey-copy').onclick = () => copy(data.key.key);
+      document.getElementById('label').value = '';
+      load();
+    });
+
+    load();
+  </script>
+</body>
+</html>
