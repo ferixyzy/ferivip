@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       .filter((k) => k && k.key && k.active && (!k.expiresAt || k.expiresAt > now))
       .map((k) => k.key)
       .sort();
-    return res.status(200).send(JSON.stringify({ success: true, count: keys.length, updatedAt: now, keys }));
+    return res.status(200).send(JSON.stringify({ success: true, count: keys.length, updatedAt: now, storage: db.USE_REDIS ? 'redis' : 'tmp', keys }));
   } catch (e) {
     return res.status(500).send(JSON.stringify({ success: false, count: 0, keys: [] }));
   }
