@@ -1,7 +1,0 @@
-{
-  "name": "fericod-panel",
-  "version": "1.0.0",
-  "private": true,
-  "description": "FERICOD key panel - Vercel serverless",
-  "engines": { "node": ">=18" }
-}
