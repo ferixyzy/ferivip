@@ -130,17 +130,22 @@ else
 end`;
 
     // Cek list publik: bukti bahwa generate/hapus langsung tersinkron
+    let activeNow = 0;
     async function checkSync() {
       const el = document.getElementById('sync');
+      const bad = (t) => { el.textContent = t; el.className = 'text-[11px] text-blood-light mt-2'; };
       try {
         const r = await fetch('/keys.json', { cache: 'no-store' });
         const j = await r.json();
         if (!j.success) throw new Error();
+        if (j.storage !== 'redis')
+          return bad('PERINGATAN: database Redis BELUM aktif. Data hanya di memori sementara, /keys.json tidak akan konsisten. Hubungkan Upstash Redis di Vercel > Storage lalu Redeploy.');
+        if (j.count !== activeNow)
+          return bad('Tidak sinkron: dashboard ' + activeNow + ' aktif, list online ' + j.count + '. Coba refresh.');
         el.textContent = 'Online sekarang: ' + j.count + ' key aktif (otomatis ter-update)';
         el.className = 'text-[11px] text-green-400 mt-2';
       } catch {
-        el.textContent = 'Gagal membaca list online';
-        el.className = 'text-[11px] text-blood-light mt-2';
+        bad('Gagal membaca list online');
       }
     }
 
@@ -158,6 +163,7 @@ end`;
       if (!ok) return toast(data.message || 'Gagal memuat', true);
       keys = data.keys;
       render();
+      activeNow = keys.filter((k) => status(k)[0] === 'AKTIF').length;
       checkSync();
     }
 
